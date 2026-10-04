@@ -1,149 +1,136 @@
 # 归属与来源声明 / Attribution
 
-> 本文件是这套方案里**两个模块的版权状态说明**。在复用、分发或改写任何东西之前，请先读完。
+> 本仓库**不含任何二进制文件**。所有内容为技术文档，
+> 使用者需自行获取软件包并自行实现所需模块。
 
 ---
 
-## 一、`shm_watch7_fix`（KSU 持久化模块）
+## 一、本仓库提供的内容
 
-**✅ 本项目原创，可自由使用。**
-
-| 项 | 内容 |
+| 组成 | 性质 |
 |---|---|
-| 包名 / id | `shm_watch7_fix` |
-| 作者 | `liuchenljc` |
-| 许可 | MIT |
-| 构成 | `service.sh`（3005 B）、`system.prop`（67 B）、`module.prop`、`user_configure_fixed.db` |
-| 第三方代码 | **无**。全部为本项目从零编写 |
+| `教程/` 5 份 | 纯 Markdown，技术原理与操作流程 |
+| `知识包/` 10 份 | 纯 Markdown，故障排查记录（24 个问题） |
+| `README.md` | 流程说明 |
+| 本文件 | 声明 |
 
-`service.sh` 的注释里保留了完整的演进史（v1 → v5 的四个真实 bug 与修法），
-这部分是第一手调试记录，可自由引用。
-
-> ⚠️ 唯一的外部依赖：`user_configure_fixed.db` 是**本机（小米 14 / HyperOS 3.0.306）**
-> 的 powerkeeper 状态快照。换机型**必须自建**，方法见
-> [模块源码/shm_watch7_fix/README.md](模块源码/shm_watch7_fix/README.md)。
+**零二进制、零安装包、零脚本。**
 
 ---
 
-## 二、`spoof_module_v8_signed.apk`（LSPosed 伪装模块）
+## 二、不在本仓库提供的东西
 
-**⚠️ 这是【修改版】，不是原创。分发前请读完本节。**
+| 类别 | 具体 | 原因 |
+|---|---|---|
+| 三星应用 | 四个官方 APK | **三星版权**，无再分发授权 |
+| boot 镜像 | `init_boot.img` 等 | 含设备厂商版权内容 |
+| 第三方 root 工具 | KernelSU / Zygisk Next / Vector 等 | 各自有独立分发渠道与许可 |
+| Xposed 模块 | 预编译 APK 或反编译源码 | 见下节 |
+| 工具链 | JDK / smali / uber-apk-signer | 各自有独立分发渠道 |
 
-| 项 | 内容 |
+### 获取途径
+
+| 类别 | 途径 |
 |---|---|
-| 包名 | `com.arnold.spoofsamsung.Hook` |
-| 原作者 | **未知** —— 原始 APK 内未包含任何作者、版权或许可声明 |
-| 原许可 | **未知** —— 原始 APK 无 `LICENSE` 文件 |
-| 获取方式 | 第三方渠道获得的**预编译 APK**，非从 GitHub 开源仓库获取 |
-| 本项目改动 | 见下表 |
+| 三星应用（国内） | 应用宝搜包名 |
+| 三星应用（国外） | Galaxy Store / Play Store |
+| 三星应用（最可靠） | 自己的三星设备 `adb pull $(pm path <包名>)` |
+| KernelSU / Zygisk Next / Vector | 各自官方 GitHub Releases |
+| JDK / smali / signer | 各自官网 |
 
-### 为什么原作者未知
+---
 
-对原始 APK 的取证结果：
+## 三、第三方模块的情况
 
-```bash
-# dex 里只有包名与 libxposed API 引用，无任何作者/许可字符串
-unzip -p spoof_module_original.apk classes.dex | strings | grep -iE "author|license|copyright|github"
-# → 无匹配
+### 已知事实
 
-# resources.arsc 只有一句功能描述
-# → 'Spoof Samsung device info for Galaxy Wearable apps.'
-# → 'SpoofSamsung'
+网上流传一个用于 Galaxy Wearable 系应用的 Xposed 模块，
+包名 `com.arnold.spoofsamsung.Hook`，功能描述为
+「Spoof Samsung device info for Galaxy Wearable apps」。
+
+本仓库对其来源做过取证，结论如下：
+
+| 检查项 | 结果 |
+|---|---|
+| `classes.dex` 内 author / license / copyright / github 字符串 | **0 条** |
+| `resources.arsc` 内作者信息 | **0 条**，仅一句功能描述 |
+| 包内 `LICENSE` 文件 | **无** |
+| GitHub `search/code` `"com.arnold.spoofsamsung"` | **0 命中** |
+| GitHub `search/code` `spoofsamsung` | 9 条，全部无关（Vesper-OS、nmap 脚本等） |
+| GitHub `search/repositories` `spoofsamsung` | **0 命中** |
+| GitHub `search/repositories` `spoof samsung xposed` | **0 命中** |
+
+### 结论
+
+**原作者未知，原许可未知。**
+
+按著作权法默认规则，未声明许可的作品保留所有权利，
+他人不得修改或再分发；反编译本身也可能违反原作品 EULA。
+
+**因此本仓库不提供、不分发该模块，也不分发其任何修改版。**
+
+### 如果你正是原作者
+
+请通过 GitHub 仓库 owner 的主页联系。届时可以：
+
+1. 在所有文档中补上你的署名与许可声明
+2. 把你的仓库地址、Issue 链接、联系方式写进 README
+3. 由你决定是否接受本项目的分析结论
+
+---
+
+## 四、符号名引用说明
+
+README 与教程中提到的以下内容，属于**对第三方软件的分析结果**，
+不构成对任何作品的复制或分发：
+
+- 包名（`com.samsung.android.healthmonitor` 等）—— 公开标识符
+- 类名与方法名（`util/o.b0()`、`fs90.u()` 等）—— 代码中的符号名
+- 字段名（`userTable.bgControl`）—— 数据库表结构
+- 系统属性名（`ro.csc.countryiso_code`）—— AOSP 公开属性
+
+这些是**分析信息**，如同论文中引用论文标题。
+
+---
+
+## 五、本仓库文档的许可
+
+文档部分采用 **MIT** 许可。
+
+```
+Copyright (c) 2026 liuchenljc
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
-GitHub 检索结果同样为空：
+---
 
-| 检索 | 命中 |
-|---|---|
-| `search/code` `"com.arnold.spoofsamsung"` | 0 |
-| `search/code` `spoofsamsung` | 9（全部无关：Vesper-OS 的 ghost_mode、nmap 脚本等） |
-| `search/repositories` `spoofsamsung` | 0 |
-| `search/repositories` `spoof samsung xposed` | 0 |
+## 六、协作署名
 
-### 本项目所做的修改
-
-| # | 修改 | 原因 |
-|---|---|---|
-| 1 | 新增第 4 个 hook：`SHM util/o.b0()` → `true` | 解锁 Ring 的 SLEEP 通道（睡眠呼吸暂停手机侧）。原版只有 3 个 hook |
-| 2 | 修正三星健康中国版构建检查（KCB）的绕过路径 | 原版对 `com.sec.android.app.shealth` 的处理不完整 |
-| 3 | 目标作用域从 `watchuniteplugin` 扩展到 `watch7plugin` | 原版只覆盖老款手表插件 |
-| 4 | 重新打包与签名 | 改 smali 后必须重签。用 uber-apk-signer 内置 debug keystore |
-
-完整改动证据见 [教程/kcb-bypass-hook.md](教程/kcb-bypass-hook.md) 与
-`模块源码/smali_v8/com/arnold/spoofsamsung/Hook/SpoofSamsungModule.smali` 头部声明。
-
-原包原样保留在私有仓库的 `artifacts/module/spoof_module_original.apk`。
-
-### 许可状态与分发限制
-
-> **无声明 = 保留所有权利。**
->
-> 按《著作权法》默认规则，未声明许可的作品，他人不得修改或再分发。
-> 反编译本身可能也违反原作品 EULA。
->
-> 因此本仓库对这两件东西采取**最保守的处理**：
->
-> | 内容 | 本公开包 | 私有仓库 |
-> |---|---|---|
-> | `spoof_module_v8_signed.apk`（预编译） | ❌ **不含** | ✅ 保留 |
-> | `smali_v8/`（反编译源码） | ❌ **不含** | ✅ 保留 |
-> | 原理说明与技术文档 | ✅ 含 | ✅ |
->
-> **公开包只提供「原理 + 教程 + 本项目原创的 KSU 模块」。**
-> 想要 LSPosed 模块的人，请自行按教程描述的 hook 点，从官方渠道或自己实现。
-
-### 如果你是原作者
-
-如果你就是 `com.arnold.spoofsamsung.Hook` 的作者，请联系我们，
-本项目会：
-
-1. 在所有文件中补上你的署名与许可声明
-2. 把你的仓库地址、Issue 链接、联系方式写进 README
-3. 把本项目做的 4 项修改整理成规范的 patch，供你合并
-
-**联系方式**：见仓库 owner 的 GitHub 主页。
+文档撰写：`liuchenljc`
+本文档由 `liuchenljc` 与 AI 助手 LC 协作完成。
 
 ---
 
-## 三、四个三星应用
+## 七、免责
 
-`com.sec.android.app.shealth`、`com.samsung.android.shealthmonitor`、
-`com.samsung.android.app.watchmanager`、`com.samsung.wearable.watch7plugin`
-
-**均为三星版权，本项目不提供、不分发。** 请从 Galaxy Store 或你自己的三星设备获取。
-
-本方案的前提是「**官方原版包 + 运行时打补丁**」——
-换成任何第三方改版（签名不同），signature-level 权限与 sharedUserId 都会对不上，方案失效。
-
----
-
-## 四、工具链
-
-| 工具 | 许可 | 是否分发 |
-|---|---|---|
-| smali / baksmali 2.5.2 | Apache-2.0 | ❌ 读者自备 |
-| uber-apk-signer 1.3.0 | MIT | ❌ 读者自备（私有仓库有） |
-| JDK 17 | GPLv2+CE | ❌ 读者自备 |
-| adb / fastboot | Apache-2.0 | ❌ 读者自备 |
-| SukiSU Ultra | 见其仓库 | ❌ 读者自备 |
-| Zygisk Next | GPL-3.0 | ❌ 读者自备 |
-| Vector / LSPosed | GPL-3.0 | ❌ 读者自备 |
-| KernelSU | GPL-3.0 | ❌ 读者自备 |
-
-`工具/build_module.sh` 与 `工具/sanitize.py` 是本项目原创，随本包分发。
-
----
-
-## 五、本项目
-
-| 项 | 内容 |
-|---|---|
-| 教程与文档 | `liuchenljc` 原创 |
-| KSU 模块 | `liuchenljc` 原创，MIT |
-| 排查知识包 | `liuchenljc` 原创 |
-| 辅助脚本 | `liuchenljc` 原创 |
-| 协作 | 由 `liuchenljc` 与 AI 助手 LC 协作完成 |
-
-**免责声明**：本项目仅用于技术学习与个人设备排障研究。
-绕过厂商区域限制可能违反相关服务条款，请勿用于商业或侵害他人权益的用途。
-血压 / 心电数据未经医疗认证，**不能作为诊断依据**。
+- 本仓库内容仅用于技术学习与个人设备排障研究
+- 绕过厂商区域限制可能违反相关服务条款，请勿用于商业或他人设备
+- 血压 / 心电数据未经医疗认证，**不能作为诊断依据**
+- 使用者需自行遵守所获取软件的许可协议
