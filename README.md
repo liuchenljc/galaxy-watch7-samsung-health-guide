@@ -1,450 +1,309 @@
-# Galaxy Watch7 在非三星手机上使用三星健康功能
+# Galaxy Watch7 在非三星 Android 手机上使用三星健康功能
 
-> 完整可复刻教程。
->
-> 本包**不含任何三星官方 APK**（需自行从官方渠道获取，见 §3），
-> 也不含 LSPosed 伪装模块（第三方作品，许可状态见 [归属声明](ATTRIBUTION_归属声明.md)）。
->
-> **包含**：本项目原创的 KSU 持久化模块（MIT，可直接装）+ 完整教程 + 24 个已踩过的坑。
+> **本仓库只提供技术流程与原理，不提供任何安装包、模块、脚本或二进制文件。**
+> 所有依赖请自行从官方渠道获取，或参考本仓库的描述自行实现。
 
 ---
 
-## 目录
+## ⚠️ 先读这一段
 
-- [1. 这是什么](#1-这是什么)
-- [2. 前置条件](#2-前置条件)
-- [3. 你需要自己获取的东西](#3-你需要自己获取的东西)
-- [4. 原理：两道锁 + 一个杀手](#4-原理两道锁--一个杀手)
-- [5. 安装步骤](#5-安装步骤)
-- [6. 验证](#6-验证)
-- [7. 已知不可用的功能](#7-已知不可用的功能)
-- [8. 常见问题](#8-常见问题)
-- [9. 安全与免责](#9-安全与免责)
-- [10. 归属与许可](#10-归属与许可)
+### 本仓库有什么
 
----
+```
+教程/      纯 Markdown，原理 + 操作流程
+知识包/    纯 Markdown，24 个已踩过的坑
+```
 
-## 1. 这是什么
+### 本仓库没有什么（且不会提供）
 
-Galaxy Watch7 的完整健康功能（血压、心电图、AGEs、抗氧化指数、睡眠呼吸暂停）需要配套的三星手机
-App 才能使用。三星只在自家手机预装这些 App。
-
-本项目让这些 App 在**非三星 Android 手机**上工作，用到：
-
-| 层 | 手段 | 作用 |
-|---|---|---|
-| Java 层 | **LSPosed 模块**（需自建，见 §4 与归属声明） | 绕过厂商白名单 + 地区门 |
-| 系统层 | **KernelSU 模块**（本包提供 zip + 源码） | 开机注入地区属性 + 每 5 分钟自愈后台限制 + 守护传输进程 |
-
-**两个缺一不可。** 少 LSPosed 模块 = 闪退打不开；少 KSU 模块 = 能开但时好时坏。
-
-### 已验证可用的功能
-
-| 功能 | 状态 |
+| 不提供 | 原因 |
 |---|---|
-| 常规健康（步数/睡眠/心率/体成分） | ✅ |
-| 血压（手机指挥手表 + 数据回写） | ✅ |
-| 心电图 ECG | ✅ |
-| AGEs（糖基化终末产物） | ✅ |
-| 抗氧化指数 | ✅（需装第三方启动器拉起原生界面） |
-| 睡眠呼吸暂停 SA | ⚠️ 手机侧解锁，**手表端不可用**（见 §7） |
+| 三星官方 APK | 三星版权，无再分发授权。请从应用商店或你自己的三星设备获取 |
+| Xposed / LSPosed 模块 | 见下方「第三方模块的情况」 |
+| 任何 `.apk` / `.zip` / `.img` / `.jar` | 避免成为分发方 |
+| 任何 `.sh` / `.py` 脚本 | 同上 |
+| boot 镜像 | 含设备厂商版权内容 |
+
+### 为什么不给包
+
+技术上完全做得到，但**一旦提供二进制，本仓库就成了「分发方」**，
+而分发链路上每一环都需要授权，风险全部落在提供者身上。
+纯文档只是「公开技术思路」，性质完全不同。
+
+如果你要做的是**自己用**，按下面的流程走一遍即可，全程 1～2 小时。
 
 ---
 
-## 2. 前置条件
+## 第三方模块的情况
 
-### 硬件
+网上流传一个用于 Galaxy Wearable 系应用的 Xposed 模块，
+包名 `com.arnold.spoofsamsung.Hook`，功能是「伪造三星设备信息」。
 
-| 项 | 要求 |
+**关于它的来源，本仓库能确认的事实：**
+
+| 事实 | 依据 |
 |---|---|
-| 手机 | **已解锁 BL** 的 Android 11+ 设备，arm64-v8a |
-| 手表 | Galaxy Watch7（SM-L310）或同类三星 Watch |
+| 原始 APK 内无任何作者、版权或许可声明 | 对 `classes.dex` 与 `resources.arsc` 全文提取字符串比对 |
+| 原始 APK 无 `LICENSE` 文件 | 包内文件清单 |
+| GitHub 上搜不到该包名 | `search/code` 与 `search/repositories` 均为 0 命中 |
 
-### 手机端
+**结论：许可状态为「保留所有权利」。**
+无声明 ≠ 可自由使用，因此本仓库**不提供、不推荐、不分发**该模块及其修改版。
 
-| 依赖 | 版本 | 用途 |
-|---|---|---|
-| KernelSU | ≥ 最新版 | root。**或**用 LKM 模式 |
-| Zygisk Next | 1.5.0 (843) | 注入层 |
-| LSPosed / **Vector** | **2.x**（如 v2.2） | 加载模块。⚠️ 见下方警告 |
-| adb + fastboot | 任意近期版本 | 调试与刷机 |
+如果你决定自行获取并使用，责任在你；建议不要用于分发或二次打包。
 
-> ### ⚠️ LSPosed 版本是硬门槛
-> 伪装模块用的是 **libxposed 新 API**（`minApiVersion=102`）。
-> **LSPosed 1.9.x 装了不报错，但模块完全不会加载**（日志零条 hook 记录），极易误判成模块坏了。
-> 必须用 **2.x**。LSPosed 现名 **Vector**（JingMatrix 维护），模块 id 从 `zygisk_lsposed` 变成 `zygisk_vector`。
+### 需要的 hook（供自行实现参考）
 
-### 电脑端
+Xposed 模块需要处理的点。**这些是三星自己代码里的符号名，属于分析信息，
+不涉及任何第三方作品：**
 
-- Python 3.7+（仅用于辅助脚本）
-- smali/baksmali 2.5.2（**仅重编模块时需要**，9 个 jar 必须同版本）
-- uber-apk-signer 1.3.0（仅重签时需要）
-- JDK 17（仅重编时需要）
+| # | 目标 | 需要的改法 | 不做的后果 |
+|---|---|---|---|
+| 1 | 三星健康里的中国版构建检查方法（KCB） | 返回 `true` | 三星健康卡在构建检查，界面异常 |
+| 2 | 三星健康监测器入口 Activity 的 `onCreate` | 改道入口，跳过厂商校验 | **点开就闪退** |
+| 3 | `TelephonyManager.getSimCountryIso()` | 返回 `"vn"` | 血压 / 心电图 / 抗氧化全部锁死 |
+| 4 | 三星健康监测器 `util/o` 类的 `b0()` | 返回 `true` | 睡眠呼吸暂停手机侧通道不开 |
 
-> 工具链体积大且与平台无关，**不随本包分发**，需自行按版本表准备。
+**作用域（scope）必须包含 4 个包：**
+
+```
+com.samsung.wearable.watchuniteplugin
+com.samsung.wearable.watch7plugin
+com.sec.android.app.shealth
+com.samsung.android.shealthmonitor
+```
+
+**API 要求**：必须用 libxposed 新 API，模块 `module.prop` 里声明
+`minApiVersion=102` / `targetApiVersion=102` / `staticScope=true`。
+
+> ### ⚠️ Xposed 版本是硬门槛
+> **1.9.x 装了不报错，但模块完全不会加载**（日志零条 hook 记录），
+> 极易误判成模块写坏了。必须用 **2.x**（现名 Vector，JingMatrix 维护）。
+> 详见 `知识包/问题排查知识包_20261003/02_root与模块.md` B1。
 
 ---
 
-## 3. 你需要自己获取的东西
+## 需要的依赖
 
-> **本包不提供以下文件。** 它们是三星 / 各项目的官方或公开发行版本，
-> 自行获取也符合各自的使用条款。
+### 四个三星应用（从应用商店获取）
 
-### 3.1 四个三星 App（必须，从 Galaxy Store 装）
-
-| 包名 | 应用 | 说明 |
+| 包名 | 应用 | 作用 |
 |---|---|---|
-| `com.sec.android.app.shealth` | 三星健康 | 主应用 |
-| `com.samsung.android.shealthmonitor` | 三星健康监测器 | **血压/心电图/SA 的核心** |
+| `com.sec.android.app.shealth` | 三星健康 | 主应用，健康数据同步 |
+| `com.samsung.android.shealthmonitor` | 三星健康监测器 | **血压 / 心电图 / SA / 抗氧化的核心** |
 | `com.samsung.android.app.watchmanager` | Galaxy Wearable | 手表配对与插件管理 |
 | `com.samsung.wearable.watch7plugin` | Watch7 插件 | 手表能力信息 |
 
-**获取途径**：手机端 Galaxy Store（`galaxystore.samsung.com`），或从任何能装三星健康的三星设备 `pm path` 导出。
+> ### 获取途径
+> - **国内**：应用宝（腾讯）搜包名或应用名，实测可用
+> - **国外**：Galaxy Store（`galaxystore.samsung.com`）或 Play Store
+> - **最可靠**：从你自己任何一台三星设备 `adb pull $(pm path <包名>)`
+>
+> ⚠️ **必须是官方原版**。这套思路是「官方包 + 运行时打补丁」——
+> 换成第三方改版（签名不同），signature-level 权限与 sharedUserId 都会对不上，全套失效。
+> 验证方法见 `知识包/问题排查知识包_20261003/04_三星应用层.md` D1。
 
-> ### ⚠️ 必须是官方原版
-> 这套方案是「**官方包 + LSPosed 运行时打补丁**」。换成第三方改版（签名不同），
-> 整个方案失效 —— 因为 signature-level 权限和 sharedUserId 都对不上。
-> 验证方法见 §6.1。
+### root 环境
 
-### 3.2 第三方应用（可选）
-
-| 用途 | 包名 | 说明 |
+| 依赖 | 版本要求 | 备注 |
 |---|---|---|
-| 抗氧化指数启动器 | `com.skya.antioxidantsindex` | 纯图标壳，只把原生测量界面拉起来 |
-| 备用心电图 | `com.geminiman.wellness.companion` | 双端 |
+| KernelSU 或 SukiSU | 最新版 | 提供 root |
+| Zygisk 实现 | Zygisk Next 1.5.0 (843) | 注入层 |
+| Xposed 框架 | **必须是 2.x / Vector** | 见上文硬门槛 |
+| Xposed 模块 | 自实现或自行获取 | 见上文 |
 
-### 3.3 本包提供的东西
+### root 方式二选一
 
-```
-模块/
-  shm_watch7_fix_v5.zip         KSU 持久化模块（46 KB）★本项目原创，MIT
-模块源码/
-  shm_watch7_fix/               KSU 模块完整源码（service.sh / system.prop / module.prop）
-工具/
-  build_module.sh               smali 重建脚本
-  sanitize.py                   文档脱敏
-教程/                           5 份深度文档
-知识包/                         24 个已踩过的坑（8 类索引）
-```
+| 方式 | 刷什么 | 优点 | 风险 |
+|---|---|---|---|
+| **GKI 补丁版** | `init_boot` 分区 | 彻底 | 刷错分区会变砖 |
+| **LKM 模式** | `init_boot` 刷 ksuinit + 加载 `.ko` | OTA 不丢 root | 隐藏较弱 |
 
-> ### ⚠️ 关于 LSPosed 伪装模块
->
-> 伪装模块（LSPosed）**不在本包内**。原因见
-> [`ATTRIBUTION_归属声明.md`](ATTRIBUTION_归属声明.md)：
->
-> - 该模块（包名 `com.arnold.spoofsamsung.Hook`）是**第三方作品**，本项目只做了修改
-> - 原 APK **未含任何作者或许可声明** → 许可状态为「保留所有权利」
-> - 因此本包**不分发其预编译 APK 与反编译源码**
->
-> **想自己做的话**，本教程 §4 已完整说明 4 个 hook 的目标与方法：
->
-> | # | 目标 | 改法 |
-> |---|---|---|
-> | 1 | `fs90.u()` | 返回 `true`，绕过中国版构建检查 |
-> | 2 | `SHM MainActivity.onCreate` | 改道入口，绕过厂商白名单 |
-> | 3 | `TelephonyManager.getSimCountryIso()` | 返回 `"vn"`，地区伪装 |
-> | 4 | `SHM util/o.b0()` | 返回 `true`，解锁 SA 通道 |
->
-> 用 libxposed API（`minApiVersion=102`）写这样一个模块并不复杂，
-> 核心就是这 4 个 `HookBuilder.intercept()`。
+> ⚠️ **绝对不能刷 `boot` 分区**，会变砖。必须 `init_boot`。
+> 刷之前务必 `fastboot fetch init_boot backup.img` 备份原版。
+> 变砖救援：用原版镜像刷回 `init_boot`。
+
+### KSU 持久化模块（需自行编写）
+
+需要 4 个文件，作用如下（**结构说明，不含代码**）：
+
+| 文件 | 作用 |
+|---|---|
+| `module.prop` | 模块元信息 |
+| `system.prop` | 开机注入地区属性（越南），三星健康据此放行功能 |
+| `service.sh` | 常驻循环：① 定时恢复后台限制 ② 守护传输进程 |
+| `user_configure_fixed.db` | 某台设备的 MIUI 省电库「正确态」快照 |
+
+**关键实现要点：**
+
+1. **省电库对抗** —— MIUI 的 powerkeeper 会周期性地把三星应用的后台限制改回去，
+   必须有常驻进程守着。判据要可靠：数目标数据库里「无限制」字段的**出现次数**，
+   不要用文件大小（差值可能小于阈值而漏判）
+2. **传输进程守护** —— 手表↔手机的传输进程**没有任何启动入口**，
+   把后台限制放开后它也**不会自动复活**，必须显式发广播拉起
+3. **常驻方式** —— 后台子 shell 会在父脚本退出后被回收，必须用 `setsid` 等方式脱离会话
+4. **检查间隔** —— 别和云端回滚周期同频，否则会有一半时间处于受限状态
+5. **快照要自建** —— 别人机器的省电库组合不一定适用
+
+> 详细实现原理与五个版本的踩坑史（子 shell 被回收 / sqlite3 命令不存在 / 指纹漏判 /
+> 间隔同频拉锯），见 `知识包/问题排查知识包_20261003/03_MIUI拦截三件套.md` C1。
 
 ---
 
-## 4. 原理：两道锁 + 一个杀手
+## 操作流程（12 步）
+
+> 完整带命令的版本见 `教程/MASTER_全流程.md`
+
+```
+①  确认 BL 已解锁          设置 → 关于手机 → 连点版本号 7 次 → 开发者选项
+②  备份原版 init_boot      fastboot fetch init_boot backup.img
+③  进 fastboot             关机 → 音量下 + 电源
+④  刷 KernelSU            fastboot flash init_boot <补丁镜像>   ← 不是 boot！
+⑤  重启验证 root          adb shell su -c id    → uid=0
+⑥  装 root 管理器         APK 自行获取
+⑦  开 Zygisk → 重启
+⑧  装 Zygisk 实现         → 重启
+⑨  装 Xposed 2.x          → 重启   ⚠️ 勿用 1.9.x
+⑩  装四个三星应用 + 你的 Xposed 模块
+⑪  装 KSU 持久化模块      → 重启
+⑫  ★手动两步：填个人资料 + 开「后台弹出界面」权限
+```
+
+### ★ 第十二步不能省
+
+**① 三星健康监测器「创建个人资料」页 → 点保存**
+
+打开监测器 → 同意条款 → 出现「编辑个人资料」→ **改一下出生日期**
+（让「保存」按钮变亮）→ 填 → **点保存**。
+
+> 这一步写入的开关是血压遥控和心电图条款握手的**共同前置**。
+> 跳过它，手机发不出测量指令，手表测不了。
+> 很多人在这里卡住，却以为是模块失效。
+
+**② 给 Galaxy Wearable 开「后台弹出界面」权限**
+
+设置 → 应用管理 → Galaxy Wearable → 权限 → 「后台弹出界面」→ 允许。
+
+> 这一项**没有 adb 命令能开**，只能手点。
+> 不做的症状：手表提示「到手机上操作」，手机毫无反应。
+
+---
+
+## 三个核心原理
 
 ### 锁 1：厂商白名单（代码层）
 
-`com.samsung.android.shealthmonitor` 的 `MainActivity.onCreate` 检查
-`Build.MANUFACTURER.contains("samsung")`，非三星 → `finish()`。
-表现是「点开就闪退」。
+三星健康监测器的入口 Activity 会检查 `Build.MANUFACTURER` 是否包含 `samsung`，
+非三星设备直接 `finish()`。表现是**点开就闪退**。
 
 ### 锁 2：地区门（代码层）
 
-SHM 校验 SIM 国家码后才放行血压 / 心电图 / SA / 抗氧化。中国区部分功能被关。
+校验 SIM 国家码后才放行血压 / 心电图 / 抗氧化 / SA。中国区部分功能被关闭。
 
-### 杀手：MIUI / ColorOS 后台限制（系统层）
+### 杀手：后台限制（系统层）
 
-`/data/data/com.miui.powerkeeper/databases/user_configure.db` 的 `userTable.bgControl` 字段。
-三星包默认 `miuiAuto`（限制后台），**云端会周期性改回**。
-表现是「用一会儿就连不上了」。
+MIUI 的 powerkeeper 数据库 `userTable.bgControl` 字段控制后台放行，
+云端会**周期性改回**受限状态。表现是**用一会儿就连不上**。
 
-### 解法组合
-
-```
-LSPosed 模块（4 个 hook）
-  ├─ fs90.u()                    → true     绕过中国版构建检查（KCB）
-  ├─ SHM MainActivity.onCreate   → 改道入口  绕过厂商白名单
-  ├─ getSimCountryIso()          → "vn"     地区伪装
-  └─ SHM util/o.b0()             → true     解锁 SA 通道
-
-KSU 模块
-  ├─ system.prop   开机注入 ro.csc.countryiso_code=VN
-  ├─ service.sh    每 300 秒：① 恢复 powerkeeper 快照 ② 守护 SAP 进程
-  └─ 快照 db       8 个包的 noRestrict 正确态
-```
+> 完整原理与定位方法见 `教程/MASTER_全流程.md` 与
+> `知识包/问题排查知识包_20261003/04_三星应用层.md`。
 
 ---
 
-## 5. 安装步骤
+## 功能状态
 
-### 步骤 0 · 准备
+| 功能 | 状态 |
+|---|---|
+| 常规健康（步数 / 睡眠 / 心率 / 体成分） | ✅ |
+| 血压（手机指挥手表 + 数据回写） | ✅ |
+| 心电图 | ✅ |
+| AGEs（糖基化终末产物） | ✅ |
+| 抗氧化指数 | ✅ 需装第三方启动器拉起原生测量界面 |
+| 睡眠呼吸暂停 | ⚠️ 手机侧可解锁，**手表端不可用** |
 
-```bash
-# 装 Zygisk 与 LSPosed（每次只装一个，重启验证再装下一个）
-# SukiSU / KernelSU → 设置里打开 Zygisk → 重启
-# SukiSU → 模块 → 从本地安装：
-#   Zygisk-Next-*.zip           → 重启
-#   Vector-*.zip  (或 LSPosed 2.x) → 重启
-```
+### 关于睡眠呼吸暂停
 
-验证：
-```bash
-adb shell su -c id                # uid=0(root)
-adb shell "su -c 'ls /data/adb/modules/'"   # 应含 zygisk_next / zygisk_vector
-```
+**现象**：手机侧解锁成功（协议版本升级、SLEEP 通道出现、相关报错消失），
+但**手表端菜单里根本没有该入口**。
 
-### 步骤 1 · 装四个三星 App
+**根因**：手表端监测器在**构建期**就把该功能编译掉了，菜单项不存在。
+手机侧的修改只能解锁手机侧通道，无法凭空造出手表端菜单。
 
-从 Galaxy Store 装，或 `adb install -r <apk>`。
-
-### 步骤 2 · 装伪装模块
-
-> 本包不分发该模块（见 [归属声明](ATTRIBUTION_归属声明.md) §2）。
-> 二选一：自己按 §4 描述实现，或从你已确认授权的渠道获取。
-
-实现要点（libxposed API，`minApiVersion=102`）：
-
-```
-META-INF/xposed/module.prop
-  minApiVersion=102  targetApiVersion=102  staticScope=true
-
-META-INF/xposed/scope.list
-  com.samsung.wearable.watchuniteplugin
-  com.samsung.wearable.watch7plugin
-  com.sec.android.app.shealth
-  com.samsung.android.shealthmonitor
-
-assets/xposed_init
-  你的入口类全名
-```
-
-```kotlin
-class Hook : XposedModule() {
-    override fun onPackageLoaded(p: PackageLoadedParam) {
-        when (p.packageName) {
-            "com.sec.android.app.shealth"      -> hookKcb(p.classLoader)
-            "com.samsung.android.shealthmonitor" -> hookShm(p.classLoader)
-            // watch7plugin / watchuniteplugin 同理
-        }
-    }
-}
-```
-
-4 个 hook 的目标与方法见 §4 表格。装完只需重启目标应用，不必重启手机：
-
-```bash
-adb shell su -c "am force-stop com.samsung.android.shealthmonitor"
-adb shell su -c "am force-stop com.sec.android.app.shealth"
-```
-
-### 步骤 3 · 装 KSU 持久化模块
-
-```bash
-K=/data/adb/modules/shm_watch7_fix
-adb shell su -c "mkdir -p $K"
-adb push 模块/shm_watch7_fix_v5.zip /data/local/tmp/
-adb shell su -c "ksud module install /data/local/tmp/shm_watch7_fix_v5.zip"
-adb reboot                    # 必须重启
-```
-
-> 也可以在 SukiSU / KernelSU → 模块 → 从本地安装 里选那个 zip。
-
-### 步骤 4 · ★ 填个人资料（最容易被漏）
-
-打开手机上的「三星健康监测器」：
-
-1. 同意条款
-2. 出现「**编辑个人资料**」→ **改一下出生日期**（让「保存」变亮）→ 填 **2004 年或更早** → **点保存**
-
-> ### ⚠️ 这一步是血压和心电图的总开关
-> 它写入 pref `shealth_monitor_base_app_setup_init`，**只由这个页面的保存按钮写入**。
-> 不保存 → 手机发不出测量指令 → 手表测不了。
-> （这也是为什么某些 LSPosed 入口改道方案会导致血压/心电图失效 —— 绕过了 Setup 链。）
-
-### 步骤 5 · 开「后台弹出界面」权限
-
-**设置 → 应用管理 → Galaxy Wearable → 权限 → 「后台弹出界面」→ 允许**
-（`com.samsung.accessory` 如有此项也开一遍）
-
-> 这一项**没有 adb 命令能开**，只能手点。
-> 不做的症状：手表提示"到手机上操作"，手机毫无反应。
-
-### 步骤 6 · 蓝牙重连
-
-如果手表之前绑过别的手机：
-**设置 → 蓝牙 → 找到 Watch7 → 取消配对**，然后在 Galaxy Wearable 里重新连（**不要重置手表**）。
+**为什么攻不下**：手表是 user build，无 root，上不了 Xposed；
+而手表端应用无法重新编译。**建议放弃。**
 
 ---
 
-## 6. 验证
+## 故障排查
 
-### 6.1 确认是官方原版包
-
-```bash
-# 证书 Subject 必须含 O=Samsung Corporation, L=Suwon City
-unzip -p <shealth.apk> META-INF/*.RSA | keytool -printcert 2>/dev/null | grep -E "O=|L="
-```
-
-### 6.2 关键属性
-
-```bash
-adb shell getprop ro.csc.countryiso_code          # 期望 VN
-adb shell su -c "ls /data/adb/modules/"           # 含 shm_watch7_fix
-adb shell su -c "tail -5 /data/adb/modules/shm_watch7_fix/self_heal.log"
-```
-
-`self_heal.log` 里看到 `OK 已恢复快照` 和 `OK SAP 已拉起` 说明守护在跑。
-
-### 6.3 链路判据
-
-```bash
-# powerkeeper 放行数（期望 ≥8）
-adb shell su -c "grep -a -o noRestrict /data/data/com.miui.powerkeeper/databases/user_configure.db | wc -l"
-
-# SHM 初始化总开关
-adb shell su -c "grep -c setup_init /data/data/com.samsung.android.shealthmonitor/shared_prefs/permanent_shared_preferences_main.xml"
-
-# 血压是否回写三星健康
-adb shell su -c "grep -ahoE 'tracker_bloodpressure_timestamp[^0-9]*[0-9]+ /data/data/com.sec.android.app.shealth/shared_prefs/*.xml | sort -u"
-```
-
-> ### ⚠️ 写 adb 判据的三个经典假阴性
-> ① `grep -c` **只输出数字**（输出 `"1"`），不能用 `"setup_init" in 输出` 判断存在性 → 解析整数
-> ② 判据的 grep 模式串本身会被 logcat 记成 adbd 命令行日志 → 永远命中 → 用字符类打断，如 `not supported i[n]`
-> ③ shell 包一层 `su -c '...'` 后，正则里的单引号会破坏嵌套 → 用 `i[n]` 之类打断
-
-### 6.4 最直接的验证
-
-**手表 → 三星健康监测器 → 心电图 → 按住按钮 30 秒**，手机上看记录。
-
----
-
-## 7. 已知不可用的功能
-
-### 睡眠呼吸暂停（SA）— 手表端不可用
-
-**现象**：手机侧已解锁（`feature version` 1 → 2，SLEEP 节点出现，logcat 不再报
-`skip onNodeChanged ... not supported`），但**手表端 SHM 菜单里没有该入口**。
-
-**根因**：手表端 SHM 构建时该功能被**编译期禁用**，菜单项根本不存在。
-手机侧的 hook 只能解锁手机侧通道，无法凭空造出手表端菜单。
-
-**为什么攻不下**：Watch7 是 user build，无 root，上不了 LSPosed；
-而手表端 SHM 无法重新编译。
-
-**结论**：手机侧保持解锁状态（万一未来固件放开就能直接用），但**不要期待手表端可用**。
-
----
-
-## 8. 常见问题
-
-| 现象 | 原因 | 处理 |
-|---|---|---|
-| SHM 点开闪退 | 伪装模块没加载 | ① 确认 LSPosed 是 **2.x**（1.9.x 静默失败）② 确认作用域含 4 个包 ③ force-stop 目标应用 |
-| 血压/心电图页面显示"服务不可用" | `setup_init` 没写入 | 重做 §5 步骤 4 |
-| 用一会儿就连不上 | powerkeeper 回滚 | 确认 KSU 模块在位，看 `self_heal.log` |
-| 手表唤不起手机 | 后台弹出界面权限没开 | 重做 §5 步骤 5 |
-| 提示"需要重置手表" | 蓝牙配对记录错乱 | **先别重置**。见知识包 `06_配对与数据链路.md` F1/F2 |
-| 心电图能测但手机没记录 | 数据权限没给 | 三星健康 → 隐私 → 数据权限 → 允许 |
-| 改完没效果 | 判断错了 | ① LSPosed 日志里有没有 hook 记录 ② 判据是不是假阴性（见 6.3） |
-
-完整排查见 `知识包/问题排查知识包_20261003/README_总览索引与快速排查.md`（24 个已踩过的坑）。
-
----
-
-## 9. 安全与免责
-
-### 关于本包
-
-- 本包**不含任何三星官方 APK**，需自行从官方渠道获取
-- 包含的模块是自制第三方作品，与三星无关
-- 所有安装操作只改**用户空间**（APK / 系统属性 / 数据库），不碰分区内核（除非你自己选择刷 init_boot 拿 root）
-
-### 风险提示
-
-1. **违反服务条款**：绕过厂商的区域限制可能违反三星服务条款，导致账号被限制。**请只用于你自己的设备。**
-2. **健康数据不可用于诊断**：血压 / 心电数据未经医疗认证。
-3. **刷机有变砖风险**：刷 `init_boot` 前务必备份原版镜像。**刷错分区（boot 而非 init_boot）会变砖。**
-4. **模块来源请自行判断**：本包模块用 debug keystore 签名（仅用于 LSPosed 加载，无系统权限需求），
-   与任何官方签名都不同，无法用于覆盖安装官方应用。
-
-### 隐私
-
-本仓库文档已做脱敏处理：不含真实姓名、MAC 地址、设备序列号、Windows 用户名、API 密钥。
-设备相关值一律用占位符 `<SERIAL>` / `<DEVICE_ID>` / `<WATCH_MAC>` / `<PHONE_MAC>` / `%USERPROFILE%` / `<LAN_IP>`。
-
----
-
-## 10. 目录结构
+出问题时先开这个：
 
 ```
-.
-├── ATTRIBUTION_归属声明.md    ★ 先读这个（版权与许可状态）
-├── 模块/                      预编译模块（直接可用）
-│   └── shm_watch7_fix_v5.zip  KSU 模块（★本项目原创，MIT）
-├── 模块源码/                  完整源码，可自行重编
-│   └── shm_watch7_fix/        KSU 模块源码
-│                              （LSPosed 模块源码不在本包，见归属声明 §2）
-├── 工具/
-│   ├── build_module.sh        从 smali 重建 + 签名
-│   └── sanitize.py            文档脱敏
-├── 教程/
-│   ├── MASTER_全流程.md       ★ 总纲，先读这个
-│   ├── SHM_Watch7_可复刻手册.md
-│   ├── kcb-bypass-hook.md
-│   ├── miui-powerkeeper-balkill.md
-│   └── 睡眠呼吸暂停专项_20261002.md
-└── 知识包/问题排查知识包_20261003/
-    ├── README_总览索引与快速排查.md    ★ 出问题时先开这个
-    ├── 01_环境与工具链.md              A1–A6
-    ├── 02_root与模块.md                B1–B5
-    ├── 03_MIUI拦截三件套.md            C1–C3
-    ├── 04_三星应用层.md                D1–D7
-    ├── 05_手表侧.md                    E1–E6
-    ├── 06_配对与数据链路.md            F1–F3
-    ├── 07_诊断方法论与陷阱.md          G1–G3
-    ├── 08_GitHub上传通道.md            H1–H2
-    └── 09_附录_环境快照.md
+知识包/问题排查知识包_20261003/README_总览索引与快速排查.md
 ```
 
+24 个已踩过的坑，分 8 类（环境 / root / 系统拦截 / 应用层 / 手表侧 / 配对 / 诊断方法 / 上传通道），
+每条含 **现象 / 报错 / 根因 / 定位 / 解决 / 验证 / 预防** 七个小节。
+
+### 三个最常见的假象
+
+**① 「明明修了还在报错」**
+
+用 `logcat | grep 'xxx'` 做判据时，**模式串本身会被 logcat 记成命令日志**，
+导致永远命中。用字符类打断（`not supported i[n]`）+ 限定 tag + 限制行数。
+
+**② 「判据脚本恒为 false」**
+
+`grep -c` **只输出数字**（输出 `"1"`），不含被匹配的字面量。
+不能用 `"xxx" in 输出` 判断存在性，要解析整数。
+
+**③ 「改了但没生效」**
+
+Xposed 在**进程启动时**读取模块。通常只需重启目标应用（force-stop），
+不必重启手机。改 `/data/adb/modules/` 里的东西才需要重启。
+
 ---
 
-## 附：重建模块
+## 已否决的技术路线
 
-```bash
-# 需要：JDK 17、smali 2.5.2（9 个 jar）、uber-apk-signer 1.3.0
-bash 工具/build_module.sh
-```
+避免重复踩坑，详见 `教程/` 里的专题文档。
 
-⚠️ uber-apk-signer **不能同时给 `--out` 和 `--overwrite`**（1.3.0 会报参数冲突）。
+| 路线 | 否决原因 |
+|---|---|
+| 往 `/system/etc/permissions/` 塞伪造声明 | **必 bootloop** |
+| 用 Xposed 补 `android.*` 框架类 | 不可能，框架类在 boot classpath，作用域管不到 |
+| 任何依赖改固件 / 解锁运营商锁的路子 | Watch7 无此能力 |
+| 用第三方改版的三星应用 | 签名不同 → signature-level 权限对不上 → 全套失效 |
+| 预处理判定某模块能否提供某类 | 先解析 dex 的 class 定义表，别靠反复重启试 |
+| 手表端侧载的 mod 版监测器 | 版本过老，接口不匹配 |
+| 指望刷国际固件解锁功能 | 官方名单与实际传感器能力无关，实测数据与固件无关 |
 
 ---
 
-*本教程仅用于技术学习与个人设备排障研究。请勿用于商业或侵害他人权益的用途。*
+## 法律与风险
+
+1. **绕过厂商区域限制可能违反三星服务条款**，可能导致账号被限制。
+   请**只用于你自己的设备**，勿用于商业或侵害他人权益的用途。
+2. **血压 / 心电数据未经医疗认证，不能作为诊断依据。**
+3. 刷机有变砖风险，务必备份原版镜像。
+4. 「官方原版 + 运行时打补丁」是这个思路的前提。
+   **不要把任何未经授权的三星应用打包分发** —— 那会让使用者也承担侵权风险。
 
 ---
 
-## 10. 归属与许可
+## 文档索引
 
-| 组成 | 作者 | 许可 | 本包是否提供 |
-|---|---|---|---|
-| `shm_watch7_fix` KSU 模块 | `liuchenljc` | **MIT** | ✅ 预编译 + 源码 |
-| 教程 / 知识包 / 脚本 | `liuchenljc` | 见仓库 | ✅ |
-| `com.arnold.spoofsamsung.Hook` | **第三方，原作者未知** | **保留所有权利** | ❌ 不分发 |
-| 四个三星应用 | Samsung | 三星版权 | ❌ 不分发 |
-| smali / uber-apk-signer / JDK / adb 等工具 | 各项目 | Apache-2.0 / MIT / GPL | ❌ 读者自备 |
+| 文档 | 内容 |
+|---|---|
+| `教程/MASTER_全流程.md` | ★ 总纲：前置条件、依赖版本表、完整流程、配置速查、常见报错、目录说明、验收判据 |
+| `教程/SHM_Watch7_可复刻手册.md` | 原理详解、五道锁分析、模块实现思路 |
+| `教程/kcb-bypass-hook.md` | 构建检查绕过的定位过程 |
+| `教程/miui-powerkeeper-balkill.md` | 系统后台拦截的根因与对抗思路 |
+| `教程/睡眠呼吸暂停专项_20261002.md` | 为什么手表端攻不下 |
+| `知识包/…/README_总览索引与快速排查.md` | ★ 出问题时先开这个 |
+| `ATTRIBUTION_归属声明.md` | 本仓库不含分发物的声明与第三方情况说明 |
 
-**如果你就是 `com.arnold.spoofsamsung.Hook` 的作者**，请联系仓库 owner，
-本项目会补上你的署名与许可声明，并把 4 项修改整理成规范 patch 供你合并。
+---
 
-本项目由 `liuchenljc` 与 AI 助手 LC 协作完成。
+*本仓库内容仅用于技术学习与个人设备排障研究。*
+*所有文件均自行获取或自行实现，请遵守相应软件的许可协议。*
