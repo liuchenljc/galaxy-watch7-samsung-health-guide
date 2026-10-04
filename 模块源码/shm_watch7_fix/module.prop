@@ -1,0 +1,8 @@
+id=shm_watch7_fix
+name=SHM Watch7 Fix (VN region + powerkeeper guard + SAP watchdog)
+version=v5
+versionCode=5
+author=liuchenljc
+authorNote=Original work by liuchenljc. Contains no third-party code.
+description=CSC region props (VN/XXV) for Samsung Health Monitor on non-Samsung phone; auto-restores powerkeeper noRestrict for 8 packages and keeps com.samsung.accessory (SAP transport) alive every 5 min. Reboot to activate.
+license=MIT
